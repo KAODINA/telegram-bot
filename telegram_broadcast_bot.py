@@ -312,18 +312,38 @@ async def cmd_list_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+
 # ── Main ──────────────────────────────────────
 
+async def post_init(application: Application):
+    """Start the scheduler after the event loop is running."""
+    scheduler.start()
+    print("✅ Scheduler started.")
+
+
 def main():
-    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        print("❌ ERROR: Please set your BOT_TOKEN in the script first!")
+    import os
+    token = os.environ.get("BOT_TOKEN", BOT_TOKEN)
+    admin_id_env = os.environ.get("ADMIN_USER_ID", str(ADMIN_USER_ID))
+
+    if token in ("", "YOUR_BOT_TOKEN_HERE"):
+        print("❌ ERROR: Please set your BOT_TOKEN first!")
         return
+
+    global BOT_TOKEN, ADMIN_USER_ID
+    BOT_TOKEN = token
+    ADMIN_USER_ID = int(admin_id_env)
 
     # Start keep-alive web server (required for Render free tier)
     from keep_alive import keep_alive
     keep_alive()
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
@@ -333,8 +353,6 @@ def main():
     app.add_handler(CommandHandler("cancelschedule", cmd_cancel_schedule))
     app.add_handler(CommandHandler("listchats", cmd_list_chats))
     app.add_handler(MessageHandler(filters.ALL, track_chat))
-
-    scheduler.start()
 
     print("🤖 Broadcast bot is running... Press Ctrl+C to stop.")
     app.run_polling()
